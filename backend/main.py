@@ -1,0 +1,83 @@
+from fastapi import FastAPI, UploadFile
+import os
+import shutil
+import uuid
+
+from vcf_parser import parse_vcf
+from phenotype_engine import infer_phenotype
+from risk_engine import predict_risk
+from drug_rules import DRUG_DB
+from json_generator import generate_output
+from recommendation_engine import get_recommendation
+from llm_explainer import generate_explanation
+
+app = FastAPI()
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/analyze/")
+async def analyze(vcf: UploadFile, drug: str):
+
+    # ⭐ create unique filename
+    filename = f"{uuid.uuid4()}_{vcf.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    # ⭐ save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(vcf.file, buffer)
+
+    # ⭐ parse VCF
+    variants = parse_vcf(file_path)
+
+    # ⭐ delete file after parsing
+    os.remove(file_path)
+
+    drug = drug.lower()
+
+    if drug not in DRUG_DB:
+        return {"error": "Unsupported drug"}
+
+    drug_gene = DRUG_DB[drug]["gene"]
+
+    for v in variants:
+        if v["gene"] == drug_gene:
+
+            # ⭐ phenotype inference
+            diplotype, phenotype = infer_phenotype(
+                v["gene"], v["star"], v["genotype"]
+            )
+
+            # ⭐ risk prediction
+            risk = predict_risk(drug, phenotype)
+
+            # ⭐ CPIC recommendation
+            recommendation = get_recommendation(drug, phenotype)
+
+            # ⭐ LLM explanation
+            explanation = generate_explanation(
+                drug,
+                drug_gene,
+                diplotype,
+                phenotype,
+                risk,
+                v["rsid"],
+                recommendation["recommendation"]
+            )
+
+            # ⭐ final JSON output
+            output = generate_output(
+                patient_id="PATIENT_001",
+                drug=drug,
+                gene=drug_gene,
+                diplotype=diplotype,
+                phenotype=phenotype,
+                risk=risk,
+                variants=[{"rsid": v["rsid"]}],
+                recommendation=recommendation,
+                explanation=explanation
+            )
+
+            return output
+
+    return {"risk": "Unknown"}
