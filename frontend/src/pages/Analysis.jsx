@@ -37,6 +37,7 @@ const Analytics = ({ drugName, file, onBack }) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const chatPanelRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,6 +62,22 @@ const Analytics = ({ drugName, file, onBack }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showAIChat && chatPanelRef.current && !chatPanelRef.current.contains(event.target) && !event.target.closest('[data-ai-icon]')) {
+        setShowAIChat(false);
+      }
+    };
+
+    if (showAIChat) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAIChat]);
+
   /* Open chat with a welcome message pre-loaded */
   const openAIChat = () => {
     if (chatMessages.length === 0) {
@@ -81,27 +98,30 @@ const Analytics = ({ drugName, file, onBack }) => {
 
     try {
       const context = `
-  Patient pharmacogenomic data:
-  - Drug: ${data.drug}
-  - Gene: ${data.pharmacogenomic_profile.primary_gene}
-  - Phenotype: ${data.pharmacogenomic_profile.phenotype}
-  - Risk: ${data.risk_assessment.risk_label}
-  - Recommendation: ${data.clinical_recommendation.recommendation}
-  - Summary: ${data.llm_generated_explanation.summary}
+Patient pharmacogenomic data:
+- Drug: ${data.drug}
+- Gene: ${data.pharmacogenomic_profile.primary_gene}
+- Phenotype: ${data.pharmacogenomic_profile.phenotype}
+- Risk: ${data.risk_assessment.risk_label}
+- Recommendation: ${data.clinical_recommendation.recommendation}
+- Summary: ${data.llm_generated_explanation.summary}
 
-  You are a friendly, plain-English health assistant. Answer in 2-3 short sentences max. No jargon. Be warm and clear.
-        `;
+You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be direct and clear. No jargon.
+      `;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY || 'your-openai-api-key-here'}`
+        },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: context,
+          model: 'gpt-3.5-turbo',
+          max_tokens: 80,
           messages: [
+            { role: 'system', content: context },
             ...chatMessages.filter(m => m.role !== 'assistant' || chatMessages.indexOf(m) > 0).map(m => ({
-              role: m.role,
+              role: m.role === 'assistant' ? 'assistant' : 'user',
               content: m.text
             })),
             { role: "user", content: userMsg }
@@ -110,9 +130,10 @@ const Analytics = ({ drugName, file, onBack }) => {
       });
 
       const result = await response.json();
-      const reply = result.content?.[0]?.text || "I'm sorry, I couldn't process that. Please try again.";
+      const reply = result.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that. Please try again.";
       setChatMessages(prev => [...prev, { role: 'assistant', text: reply }]);
-    } catch {
+    } catch (error) {
+      console.error('OpenAI API Error:', error);
       setChatMessages(prev => [...prev, { role: 'assistant', text: "Something went wrong. Please try again." }]);
     } finally {
       setChatLoading(false);
@@ -410,6 +431,7 @@ const Analytics = ({ drugName, file, onBack }) => {
                       title="Ask AI about this result"
                       className="group absolute -top-4 right-2 w-8 h-8 rounded-full flex items-center justify-center bg-white hover:scale-110 transition-transform duration-300"
                       style={{ padding: '2px' }}
+                      data-ai-icon
                     >
                       <span
                         className="pointer-events-none absolute inset-0 rounded-full"
@@ -507,99 +529,90 @@ const Analytics = ({ drugName, file, onBack }) => {
         )}
       </AnimatePresence>
 
-      {/* ===== AI CHAT MODAL ===== */}
+      {/* ===== AI CHAT SIDE PANEL ===== */}
       <AnimatePresence>
         {showAIChat && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-4 sm:p-6"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)' }}
-            onClick={(e) => { if (e.target === e.currentTarget) setShowAIChat(false); }}
+            ref={chatPanelRef}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+            className="fixed top-24 right-6 bottom-6 w-96 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col z-[110] border border-gray-200"
           >
-            <motion.div
-              initial={{ y: 60, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 60, opacity: 0, scale: 0.95 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-              style={{ maxHeight: '80vh' }}
-            >
-              <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #3b82f6 60%, #06b6d4 100%)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <GeminiIcon size={18} />
-                  </div>
-                  <div>
-                    <p className="text-white font-black text-sm tracking-tight">PharmaGuard AI</p>
-                    <p className="text-white/60 text-[10px] font-medium">Ask anything about your result</p>
-                  </div>
+            <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #3b82f6 60%, #06b6d4 100%)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+                  <GeminiIcon size={18} />
                 </div>
-                <button onClick={() => setShowAIChat(false)} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all">
-                  <FiX size={16} />
-                </button>
+                <div>
+                  <p className="text-white font-black text-sm tracking-tight">PharmaGuard AI</p>
+                  <p className="text-white/60 text-[10px] font-medium">Ask anything about your result</p>
+                </div>
               </div>
+              <button onClick={() => setShowAIChat(false)} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all">
+                <FiX size={16} />
+              </button>
+            </div>
 
-              <div className="px-6 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Analysing</span>
-                <span className="text-[10px] font-black uppercase tracking-wide text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">{data.drug}</span>
-                <span className="text-[9px] text-gray-400">·</span>
-                <span className="text-[9px] font-medium text-gray-400">{data.risk_assessment.risk_label}</span>
-              </div>
+            <div className="px-6 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Analysing</span>
+              <span className="text-[10px] font-black uppercase tracking-wide text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">{data.drug}</span>
+              <span className="text-[9px] text-gray-400">·</span>
+              <span className="text-[9px] font-medium text-gray-400">{data.risk_assessment.risk_label}</span>
+            </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
-                {chatMessages.map((msg, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.role === 'assistant' && (
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 mt-0.5 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
-                        <GeminiIcon size={12} />
-                      </div>
-                    )}
-                    <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
-                      {msg.text}
-                    </div>
-                  </motion.div>
-                ))}
-                {chatLoading && (
-                  <div className="flex justify-start">
-                    <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
+              {chatMessages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 mt-0.5 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
                       <GeminiIcon size={12} />
                     </div>
-                    <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
-                      {[0, 0.2, 0.4].map((delay, i) => (
-                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-400 block" animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay }} />
-                      ))}
-                    </div>
+                  )}
+                  <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
+                    {msg.text}
                   </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
+                </motion.div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
+                    <GeminiIcon size={12} />
+                  </div>
+                  <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+                    {[0, 0.2, 0.4].map((delay, i) => (
+                      <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-400 block" animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
 
-              <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Ask about your result..."
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:bg-white transition-all placeholder-gray-400"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!chatInput.trim() || chatLoading}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, #6366f1, #3b82f6)' }}
-                >
-                  <FiSend size={15} />
-                </button>
-              </div>
-            </motion.div>
+            <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Ask about your result..."
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:bg-white transition-all placeholder-gray-400"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!chatInput.trim() || chatLoading}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #3b82f6)' }}
+              >
+                <FiSend size={15} />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
