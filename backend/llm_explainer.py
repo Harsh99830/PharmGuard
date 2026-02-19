@@ -1,10 +1,18 @@
-from openai import OpenAI
+from dotenv import load_dotenv
 import os
+from openai import OpenAI
 
+# Load environment variables from .env file FIRST
+load_dotenv()
+
+# Now create OpenAI client - will work with your .env file
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommendation):
 
+def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommendation):
+    """
+    Generate clinical pharmacogenomic explanation using GPT-4o-mini
+    """
     prompt = f"""
     Patient pharmacogenomic result:
     Drug: {drug}
@@ -25,7 +33,8 @@ def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommend
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2
+        temperature=0.2,
+        max_tokens=500  # Added for cost control and consistency
     )
 
-    return response.choices[0].message.content
+    return response.choices[0].message.content.strip()
