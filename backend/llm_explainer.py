@@ -11,9 +11,14 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommendation):
     """
-    Generate clinical pharmacogenomic explanation using GPT-4o-mini
+    Generate two pharmacogenomic explanations using GPT-4o-mini:
+    - patient_summary: plain-English, short, reassuring (for patients)
+    - clinical_summary: detailed clinical language (for doctors)
+    Returns a dict with both.
     """
-    prompt = f"""
+
+    # ── Patient-facing explanation ──
+    patient_prompt = f"""
     You are explaining a medication safety result to a patient with no medical background.
 
     Drug: {drug}
@@ -34,11 +39,43 @@ def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommend
     Do not start with "I" or repeat the drug name in the first word.
     """
 
-    response = client.chat.completions.create(
+    # ── Doctor-facing clinical explanation ──
+    clinical_prompt = f"""
+    You are a clinical pharmacogenomics specialist writing a structured summary for a prescribing physician.
+
+    Drug: {drug}
+    Gene: {gene}
+    Diplotype: {diplotype}
+    Phenotype: {phenotype}
+    Variant: {rsid}
+    Risk: {risk}
+    Recommendation: {recommendation}
+
+    Write a concise clinical explanation (3-4 sentences) that includes:
+    - The specific genetic variant and its effect on enzyme activity
+    - Pharmacokinetic consequence (impact on drug metabolism / plasma levels)
+    - Clinical risk and evidence-based recommendation
+    - Any relevant CPIC guideline reference if applicable
+
+    Use precise clinical terminology appropriate for a physician. Be direct and factual.
+    Maximum 80 words.
+    """
+
+    patient_response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": patient_prompt}],
         temperature=0.3,
         max_tokens=80
     )
 
-    return response.choices[0].message.content.strip()
+    clinical_response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": clinical_prompt}],
+        temperature=0.2,
+        max_tokens=160
+    )
+
+    return {
+        "summary": patient_response.choices[0].message.content.strip(),
+        "clinical_summary": clinical_response.choices[0].message.content.strip()
+    }

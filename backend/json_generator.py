@@ -34,7 +34,8 @@ def generate_output(
         "clinical_recommendation": recommendation,
 
         "llm_generated_explanation": {
-            "summary": explanation
+            "summary": explanation.get("summary", "") if isinstance(explanation, dict) else explanation,
+            "clinical_summary": explanation.get("clinical_summary", "") if isinstance(explanation, dict) else ""
         },
 
         "quality_metrics": {
