@@ -14,7 +14,8 @@ def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommend
     Generate clinical pharmacogenomic explanation using GPT-4o-mini
     """
     prompt = f"""
-    Patient pharmacogenomic result:
+    You are explaining a medication safety result to a patient with no medical background.
+
     Drug: {drug}
     Gene: {gene}
     Diplotype: {diplotype}
@@ -23,18 +24,21 @@ def generate_explanation(drug, gene, diplotype, phenotype, risk, rsid, recommend
     Risk: {risk}
     Recommendation: {recommendation}
 
-    Generate a concise clinical explanation including:
-    - biological mechanism of variant
-    - effect on enzyme activity
-    - drug metabolism impact
-    - reasoning for clinical recommendation
+    Write a 2-sentence plain-English explanation that:
+    - Tells the patient simply why this drug may not work well for them (or why it might be risky)
+    - Avoids all medical jargon (no enzyme names, no diplotype codes, no Latin terms)
+    - Uses everyday words a 12-year-old would understand
+    - Is warm and reassuring in tone, not alarming
+    - Is SHORT — maximum 40 words total
+
+    Do not start with "I" or repeat the drug name in the first word.
     """
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=500  # Added for cost control and consistency
+        temperature=0.3,
+        max_tokens=80
     )
 
     return response.choices[0].message.content.strip()

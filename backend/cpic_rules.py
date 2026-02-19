@@ -27,7 +27,11 @@ CPIC_DB = {
         "Normal metabolizer": {
             "recommendation": "Standard dosing",
             "evidence": "CPIC Level A"
-        }
+        },
+        "Intermediate metabolizer": {
+        "recommendation": "Standard dosing; monitor response and consider alternative if inadequate analgesia",
+        "evidence": "CPIC Moderate"
+    }
     },
 
     "warfarin": {
