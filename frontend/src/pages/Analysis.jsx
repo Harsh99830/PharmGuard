@@ -39,22 +39,119 @@ const Analytics = ({ drugName, file, onBack }) => {
   const chatEndRef = useRef(null);
   const chatPanelRef = useRef(null);
 
+  // Cache management functions
+  const clearCache = () => {
+    if (drugName) {
+      const cacheKey = `pharmaguard_${drugName}`;
+      localStorage.removeItem(cacheKey);
+    }
+  };
+
+  const saveToCache = (data) => {
+    if (drugName && data) {
+      const cacheKey = `pharmaguard_${data.patient_id}`;
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    }
+  };
+
+  // Get all cached reports from localStorage
+  const getCachedReports = () => {
+    const reports = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pharmaguard_')) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          reports.push({
+            drug: data.drug,
+            data: data,
+            timestamp: data.timestamp || new Date().toISOString(),
+            risk: data.risk_assessment?.risk_label || 'Unknown',
+            patient_id: data.patient_id || 'Unknown'
+          });
+        } catch (err) {
+          console.error('Error parsing cached report:', err);
+        }
+      }
+    }
+    return reports.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  };
+
+  // Load cached report
+  const loadCachedReport = (report) => {
+    setData(report.data);
+    setLoading(false);
+    setError(null);
+  };
+
+  // Clear all cached reports
+  const clearAllCache = () => {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pharmaguard_')) {
+        localStorage.removeItem(key);
+      }
+    }
+  };
+
+  const [showHistory, setShowHistory] = useState(false);
+  const cachedReports = getCachedReports();
+
+  // Get compatibility score based on risk label
+  const getCompatibilityScore = (riskLabel) => {
+    const scores = {
+      'Safe': 90,
+      'Adjust Dosage': 60,
+      'Ineffective': 30,
+      'Toxic': 10,
+      'Unknown': 50
+    };
+    return scores[riskLabel] || 50;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Check if we have cached data for this drug
+        const cacheKey = `pharmaguard_${drugName}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        
+        if (cachedData && !file) {
+          // Use cached data if no new file uploaded
+          const parsedData = JSON.parse(cachedData);
+          setData(parsedData);
+          setLoading(false);
+          return;
+        }
+        
+        // Clear cache when new file is uploaded
+        clearCache();
+        
         const result = await apiService.analyzeDrug(file, drugName);
         if (result.error) {
           setError(result.error_message || 'Unsupported VCF format or no matching variants found.');
           return;
         }
-        setData(result);
+        
+        // Generate random patient ID and save to localStorage
+        const patientId = `PATIENT_${Date.now().toString(36).slice(-6)}`;
+        const resultWithPatientId = {
+          ...result,
+          patient_id: patientId
+        };
+        
+        // Save new data to localStorage
+        saveToCache(resultWithPatientId);
+        setData(resultWithPatientId);
       } catch (err) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
+    
     if (file && drugName) fetchData();
   }, [file, drugName]);
 
@@ -279,10 +376,10 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
   );
 
   const kpis = [
-    { label: 'Risk',         val: data.risk_assessment.risk_label,               icon: <FiAlertTriangle className="text-red-500" />,   sub: 'Risk Level',            alert: data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.risk_label === "Toxic" },
+    { label: 'Risk',         val: data.risk_assessment.risk_label,               icon: <FiAlertTriangle className="text-red-500" />,   sub: 'Risk Level',            alert: data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.risk_label === "Toxic", warning: data.risk_assessment.risk_label === "Adjust Dosage" },
     { label: 'Phenotype',    val: data.pharmacogenomic_profile.phenotype,        icon: <FiZap className="text-blue-400" />,            sub: 'Metabolic Profile' },
     { label: 'Confidence',   val: `${data.risk_assessment.confidence_score * 100}%`, icon: <FiActivity className="text-emerald-500" />, sub: 'Model Precision' },
-    { label: 'Actionability',val: data.clinical_recommendation.recommendation,  icon: <FiShield className="text-emerald-500" />,      sub: 'Clinical Recommendation' },
+    { label: 'Drug Compatibility Score', val: getCompatibilityScore(data.risk_assessment.risk_label), icon: <FiShield className="text-emerald-500" />, sub: 'Compatibility (out of 100)', score: getCompatibilityScore(data.risk_assessment.risk_label) },
   ];
 
   const downloadPDF = () => {
@@ -383,6 +480,78 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
               <button onClick={() => setShowSummary(true)} className="w-full text-left px-4 py-3 rounded-xl text-gray-500 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all">Full Report</button>
             </nav>
           </div>
+
+          {/* History Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[9px] font-black uppercase tracking-widest text-gray-400">History</h3>
+              <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FiChevronDown className={`text-sm transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+            
+            <AnimatePresence>
+              {showHistory && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  {cachedReports.length > 0 ? (
+                    <>
+                      {cachedReports.slice(0, 10).map((report, index) => (
+                        <button
+                          key={report.patient_id || `${report.drug}-${index}`}
+                          onClick={() => loadCachedReport(report)}
+                          className="w-full text-left p-3 rounded-xl bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                              {report.drug?.toUpperCase()}
+                            </span>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                              report.risk === 'Toxic' || report.risk === 'Ineffective' 
+                                ? 'bg-red-100 text-red-600' 
+                                : report.risk === 'Safe' 
+                                ? 'bg-green-100 text-green-600'
+                                : 'bg-yellow-100 text-yellow-600'
+                            }`}>
+                              {report.risk || 'Unknown'}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-gray-500">
+                            Patient ID: {report.patient_id || 'Unknown'}
+                          </p>
+                        </button>
+                      ))}
+                      
+                      {cachedReports.length > 10 && (
+                        <p className="text-[9px] text-gray-400 text-center pt-1">
+                          +{cachedReports.length - 10} more reports
+                        </p>
+                      )}
+                      
+                      <button
+                        onClick={clearAllCache}
+                        className="w-full text-center px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-[9px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all"
+                      >
+                        Clear All History
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-[9px] text-gray-400 text-center py-4">
+                      No previous analyses found
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <div className="mt-auto space-y-2">
             <button onClick={downloadPDF} className="w-full px-4 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 transition-all">Export PDF</button>
             <button onClick={onBack} className="w-full px-4 py-3 rounded-xl bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-200 transition-all">Back to Upload</button>
@@ -491,14 +660,46 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className={`p-6 rounded-3xl border shadow-sm ${kpi.alert ? 'bg-red-50 border-red-200 shadow-[0_0_20px_rgba(239,68,68,0.1)]' : 'bg-white border-blue-200'}`}
+                  className={`p-6 rounded-3xl border shadow-sm ${
+                    kpi.alert 
+                      ? 'bg-red-50 border-red-200 shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
+                      : kpi.warning 
+                      ? 'bg-yellow-50 border-yellow-200 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
+                      : 'bg-white border-blue-200'
+                  }`}
                 >
                   <div className="flex items-center gap-2 mb-3 text-gray-500">
                     <span className="text-sm">{kpi.icon}</span>
                     <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{kpi.label}</span>
                   </div>
-                  <p className={`text-lg font-mono font-bold leading-none mb-1 ${kpi.alert ? 'text-red-600' : 'text-gray-800'}`}>{kpi.val}</p>
+                  <p className={`text-lg font-mono font-bold leading-none mb-1 ${
+                    kpi.alert 
+                      ? 'text-red-600' 
+                      : kpi.warning 
+                      ? 'text-yellow-600' 
+                      : 'text-gray-800'
+                  }`}>{kpi.val}</p>
                   <p className="text-[8px] opacity-60 font-bold uppercase tracking-tighter text-gray-500">{kpi.sub}</p>
+                  
+                  {/* Linear Competition Bar for Drug Compatibility Score */}
+                  {kpi.label === 'Drug Compatibility Score' && (
+                    <div className="mt-3">
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{
+                            width: `${kpi.score}%`,
+                            backgroundColor: kpi.score >= 70 ? '#10b981' : kpi.score >= 40 ? '#f59e0b' : '#ef4444'
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-[7px] text-gray-400">0</span>
+                        <span className="text-[7px] text-gray-400">50</span>
+                        <span className="text-[7px] text-gray-400">100</span>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>
