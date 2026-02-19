@@ -160,6 +160,12 @@ const Analytics = ({ drugName, file, onBack }) => {
   }, [chatMessages]);
 
   useEffect(() => {
+    if (data && !expandedSection) {
+      setExpandedSection('Risk');
+    }
+  }, [data, expandedSection]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (showAIChat && chatPanelRef.current && !chatPanelRef.current.contains(event.target) && !event.target.closest('[data-ai-icon]')) {
         setShowAIChat(false);
@@ -653,20 +659,21 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
             </motion.div>
 
             {/* ===== KPI GRID ===== */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {kpis.map((kpi, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
+                  onClick={() => setExpandedSection(prev => (prev === kpi.label ? prev : kpi.label))}
                   className={`p-4 rounded-3xl border shadow-sm ${
                     kpi.alert 
                       ? 'bg-red-50 border-red-200 shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
                       : kpi.warning 
                       ? 'bg-yellow-50 border-yellow-200 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
                       : 'bg-white border-blue-200'
-                  }`}
+                  } ${expandedSection === kpi.label ? 'ring-2 ring-blue-400 border-blue-400' : ''} cursor-pointer hover:shadow-md transition-shadow`}
                 >
                   <div className="flex items-center gap-2 mb-2 text-gray-500">
                     <span className="text-lg">{kpi.icon}</span>
@@ -728,6 +735,99 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                 </motion.div>
               ))}
             </div>
+
+            {/* ===== KPI DETAILS (TOGGLE) ===== */}
+            <AnimatePresence>
+              {expandedSection && (
+                <motion.div
+                  key={expandedSection}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                  className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 mb-2">Details</p>
+                      <h3 className="text-lg font-black text-gray-900">{expandedSection}</h3>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedSection(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-700 text-sm font-black"
+                      title="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {expandedSection === 'Risk' && (
+                    <div className="mt-4 space-y-3">
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Inputs</p>
+                          <p className="text-sm text-gray-700"><span className="font-bold">Drug:</span> {data.drug}</p>
+                          <p className="text-sm text-gray-700"><span className="font-bold">Primary gene:</span> {data.pharmacogenomic_profile.primary_gene}</p>
+                          <p className="text-sm text-gray-700"><span className="font-bold">Phenotype:</span> {data.pharmacogenomic_profile.phenotype}</p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Output</p>
+                          <p className="text-sm text-gray-700"><span className="font-bold">Risk label:</span> {data.risk_assessment.risk_label}</p>
+                          
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {expandedSection === 'Phenotype' && (
+                    <div className="mt-4 space-y-3">
+                      
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-sm text-gray-700"><span className="font-bold">Primary gene:</span> {data.pharmacogenomic_profile.primary_gene}</p>
+                        <p className="text-sm text-gray-700"><span className="font-bold">Diplotype:</span> {data.pharmacogenomic_profile.diplotype}</p>
+                        <p className="text-sm text-gray-700"><span className="font-bold">Phenotype:</span> {data.pharmacogenomic_profile.phenotype}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {expandedSection === 'Confidence' && (
+                    <div className="mt-4 space-y-3">
+                      
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-sm text-gray-700"><span className="font-bold">Confidence score:</span> {Math.round((data.risk_assessment.confidence_score || 0) * 100)}%</p>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <p className="text-xs text-gray-600"><span className="font-bold">Variant found:</span> {(data.pharmacogenomic_profile.detected_variants?.length || 0) > 0 ? 'Yes (1.0)' : 'No (0.5)'}</p>
+                          <p className="text-xs text-gray-600"><span className="font-bold">Genotype signal:</span> {data.pharmacogenomic_profile.diplotype === '1/1' ? '1/1 (1.0)' : 'Other (0.8)'}</p>
+                          <p className="text-xs text-gray-600"><span className="font-bold">Evidence:</span> {data.clinical_recommendation.evidence || 'N/A'}</p>
+                          <p className="text-xs text-gray-600"><span className="font-bold">Gene-drug:</span> Primary gene (1.0)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {expandedSection === 'Drug Compatibility Score' && (
+                    <div className="mt-4 space-y-3">
+                      
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-sm text-gray-700"><span className="font-bold">Risk label:</span> {data.risk_assessment.risk_label}</p>
+                        <p className="text-sm text-gray-700"><span className="font-bold">Score:</span> {getCompatibilityScore(data.risk_assessment.risk_label)}/100</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                          <p><span className="font-bold">Safe</span>: 90</p>
+                          <p><span className="font-bold">Adjust Dosage</span>: 60</p>
+                          <p><span className="font-bold">Ineffective</span>: 30</p>
+                          <p><span className="font-bold">Toxic</span>: 10</p>
+                          <p><span className="font-bold">Unknown</span>: 50</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </main>
       </div>
