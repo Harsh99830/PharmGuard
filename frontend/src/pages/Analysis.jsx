@@ -4,6 +4,7 @@ import {
   FiArrowLeft, FiChevronDown, FiShield, FiSearch, FiFileText, FiX, FiAlertTriangle, FiActivity, FiUser, FiZap, FiDownload, FiCopy, FiCheck, FiSend
 } from 'react-icons/fi';
 import { apiService } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 /* ── 4-pointed star icon with blue gradient (matches uploaded reference) ── */
 const GeminiIcon = ({ size = 16 }) => (
@@ -23,6 +24,7 @@ const GeminiIcon = ({ size = 16 }) => (
 );
 
 const Analytics = ({ drugName, file, onBack }) => {
+  const navigate = useNavigate();
   const [expandedSection, setExpandedSection]   = useState(null);
   const [showSummary, setShowSummary]           = useState(false);
   const [data, setData]                         = useState(null);
@@ -474,16 +476,14 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-4rem)]">
+      <div className="relative h-[calc(100vh-4rem)]">
         {/* ===== SIDEBAR ===== */}
-        <aside className="w-80 bg-white border-r border-blue-200 p-6 flex flex-col shadow-lg">
+        <aside className="fixed top-16 bottom-0 left-0 w-80 bg-white border-r border-blue-200 p-6 flex flex-col shadow-lg overflow-y-auto">
           <div className="mb-8">
             <h2 className="text-[10px] tracking-[0.4em] text-blue-600 uppercase font-black mb-6">PharmGuard</h2>
             <nav className="space-y-2">
               <button className="w-full text-left px-4 py-3 rounded-xl bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 transition-all">Overview</button>
-              <button className="w-full text-left px-4 py-3 rounded-xl text-gray-500 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all">Genetic Details</button>
-              <button className="w-full text-left px-4 py-3 rounded-xl text-gray-500 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all">Recommendations</button>
-              <button onClick={() => setShowSummary(true)} className="w-full text-left px-4 py-3 rounded-xl text-gray-500 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all">Full Report</button>
+              <button onClick={() => navigate('/genetics')} className="w-full text-left px-4 py-3 rounded-xl text-gray-500 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all">Genetic Details</button>
             </nav>
           </div>
 
@@ -565,7 +565,7 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
         </aside>
 
         {/* ===== MAIN CONTENT ===== */}
-        <main className="flex-1 p-4 md:p-8 relative z-10 overflow-y-auto bg-white">
+        <main className="ml-80 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-8 relative z-10 bg-white">
           <div className="max-w-6xl mx-auto">
             <nav className="mb-8" />
 
@@ -745,19 +745,20 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.2 }}
-                  className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+                  className="mb-8 rounded-3xl border border-gray-200 bg-white/90 backdrop-blur p-6 md:p-7 shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 mb-2">Details</p>
-                      <h3 className="text-lg font-black text-gray-900">{expandedSection}</h3>
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Details</p>
+                      <h3 className="text-xl font-black text-gray-900 tracking-tight mt-1">{expandedSection}</h3>
+                      <p className="text-xs text-gray-500 mt-1">Tap a KPI to switch. Risk stays open by default.</p>
                     </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setExpandedSection(null);
                       }}
-                      className="text-gray-400 hover:text-gray-700 text-sm font-black"
+                      className="shrink-0 w-9 h-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-colors text-sm font-black flex items-center justify-center"
                       title="Close"
                     >
                       ✕
@@ -765,63 +766,91 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                   </div>
 
                   {expandedSection === 'Risk' && (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-6 space-y-4">
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 to-white p-5">
                           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Inputs</p>
                           <p className="text-sm text-gray-700"><span className="font-bold">Drug:</span> {data.drug}</p>
                           <p className="text-sm text-gray-700"><span className="font-bold">Primary gene:</span> {data.pharmacogenomic_profile.primary_gene}</p>
                           <p className="text-sm text-gray-700"><span className="font-bold">Phenotype:</span> {data.pharmacogenomic_profile.phenotype}</p>
                         </div>
-                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <div className="rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 to-white p-5">
                           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Output</p>
                           <p className="text-sm text-gray-700"><span className="font-bold">Risk label:</span> {data.risk_assessment.risk_label}</p>
                           
                         </div>
                       </div>
+
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">How it’s found</p>
+                        <p className="text-sm text-blue-900/80 leading-relaxed">
+                          The backend maps <span className="font-bold">phenotype</span> to a drug-specific <span className="font-bold">risk label</span> using rules from <span className="font-mono">backend/drug_rules.py</span>.
+                        </p>
+                      </div>
                     </div>
                   )}
 
                   {expandedSection === 'Phenotype' && (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-6 space-y-4">
                       
-                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 to-white p-5">
                         <p className="text-sm text-gray-700"><span className="font-bold">Primary gene:</span> {data.pharmacogenomic_profile.primary_gene}</p>
                         <p className="text-sm text-gray-700"><span className="font-bold">Diplotype:</span> {data.pharmacogenomic_profile.diplotype}</p>
                         <p className="text-sm text-gray-700"><span className="font-bold">Phenotype:</span> {data.pharmacogenomic_profile.phenotype}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">How it’s found</p>
+                        <p className="text-sm text-blue-900/80 leading-relaxed">
+                          The backend infers phenotype from your VCF annotations (gene + star alleles + genotype) via <span className="font-mono">phenotype_engine.infer_phenotype</span>.
+                        </p>
                       </div>
                     </div>
                   )}
 
                   {expandedSection === 'Confidence' && (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-6 space-y-4">
                       
-                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 to-white p-5">
                         <p className="text-sm text-gray-700"><span className="font-bold">Confidence score:</span> {Math.round((data.risk_assessment.confidence_score || 0) * 100)}%</p>
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                           <p className="text-xs text-gray-600"><span className="font-bold">Variant found:</span> {(data.pharmacogenomic_profile.detected_variants?.length || 0) > 0 ? 'Yes (1.0)' : 'No (0.5)'}</p>
                           <p className="text-xs text-gray-600"><span className="font-bold">Genotype signal:</span> {data.pharmacogenomic_profile.diplotype === '1/1' ? '1/1 (1.0)' : 'Other (0.8)'}</p>
                           <p className="text-xs text-gray-600"><span className="font-bold">Evidence:</span> {data.clinical_recommendation.evidence || 'N/A'}</p>
                           <p className="text-xs text-gray-600"><span className="font-bold">Gene-drug:</span> Primary gene (1.0)</p>
                         </div>
                       </div>
+
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">How it’s found</p>
+                        <p className="text-sm text-blue-900/80 leading-relaxed">
+                          Confidence is calculated in <span className="font-mono">backend/json_generator.py</span> as the average of variant presence, genotype signal, evidence strength, and gene-drug match.
+                        </p>
+                      </div>
                     </div>
                   )}
 
                   {expandedSection === 'Drug Compatibility Score' && (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-6 space-y-4">
                       
-                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 to-white p-5">
                         <p className="text-sm text-gray-700"><span className="font-bold">Risk label:</span> {data.risk_assessment.risk_label}</p>
                         <p className="text-sm text-gray-700"><span className="font-bold">Score:</span> {getCompatibilityScore(data.risk_assessment.risk_label)}/100</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-600">
                           <p><span className="font-bold">Safe</span>: 90</p>
                           <p><span className="font-bold">Adjust Dosage</span>: 60</p>
                           <p><span className="font-bold">Ineffective</span>: 30</p>
                           <p><span className="font-bold">Toxic</span>: 10</p>
                           <p><span className="font-bold">Unknown</span>: 50</p>
                         </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">How it’s found</p>
+                        <p className="text-sm text-blue-900/80 leading-relaxed">
+                          This score is calculated on the frontend by mapping the risk label to a fixed score table.
+                        </p>
                       </div>
                     </div>
                   )}

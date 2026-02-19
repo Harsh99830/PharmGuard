@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import RiskAssessmentHome from './pages/Home';
 import AnalysisDashboard from './pages/Analysis';
+import Genetics from './pages/Genetics';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ function AppContent() {
             />
           } 
         />
+
+        <Route path="/genetics" element={<Genetics />} />
+
         {/* Redirect any unknown routes to Home */}
         <Route path="*" element={<RiskAssessmentHome onAnalyze={handleStartAnalysis} />} />
       </Routes>
