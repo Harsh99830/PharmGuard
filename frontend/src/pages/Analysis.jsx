@@ -1,31 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiArrowLeft, FiChevronDown, FiShield, FiSearch, FiFileText, FiX, FiAlertTriangle, FiActivity, FiUser, FiZap 
 } from 'react-icons/fi';
+import { apiService } from '../services/api';
 
-const Analytics = ({ drugName, onBack }) => {
+const Analytics = ({ drugName, file, onBack }) => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Data Source
-  const data = {
-    patient_id: "PATIENT_001",
-    drug: "CLOPIDOGREL",
-    timestamp: "2026-02-19T10:11:35.086",
-    risk_assessment: { risk_label: "Ineffective", confidence_score: 0.9, severity: "high" },
-    pharmacogenomic_profile: {
-      primary_gene: "CYP2C19",
-      diplotype: "*2/*2",
-      phenotype: "Poor metabolizer",
-      detected_variants: [
-        { rsid: "rs4244285", impact: "Critical", detail: "Associated with significantly reduced enzyme activity. The variant rs4244285 leads to impaired enzymatic function, resulting in decreased conversion of clopidogrel to its active metabolite." }
-      ]
-    },
-    clinical_recommendation: { recommendation: "Use alternative antiplatelet (prasugrel or ticagrelor)", evidence: "CPIC Level A" },
-    llm_generated_explanation: { summary: "The patient has a *2/*2 diplotype for the CYP2C19 gene, which is associated with a poor metabolizer phenotype. The CYP2C19 enzyme is responsible for converting clopidogrel, a prodrug, into its active form. Due to impaired enzymatic function, clopidogrel is likely to be ineffective for antiplatelet therapy." },
-    quality_metrics: { vcf_parsing_success: true }
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const result = await apiService.analyzeDrug(file, drugName);
+        setData(result);
+      } catch (err) {
+        setError(err.message);
+        console.error('Failed to fetch analysis data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (file && drugName) {
+      fetchData();
+    }
+  }, [file, drugName]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Analyzing genetic data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Error: {error}</p>
+          <button onClick={onBack} className="px-4 py-2 bg-white text-black rounded-lg">Go Back</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">
+        <div className="text-center">
+          <p>No data available</p>
+          <button onClick={onBack} className="px-4 py-2 bg-white text-black rounded-lg mt-4">Go Back</button>
+        </div>
+      </div>
+    );
+  }
 
   const isCritical = data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.severity === "high";
   const primaryVariant = data.pharmacogenomic_profile.detected_variants[0];
