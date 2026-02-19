@@ -29,6 +29,7 @@ const Analytics = ({ drugName, file, onBack }) => {
   const [loading, setLoading]                   = useState(true);
   const [error, setError]                       = useState(null);
   const [copied, setCopied]                     = useState(false);
+  const [viewMode, setViewMode]                 = useState('doctor');
 
   /* AI Chat state */
   const [showAIChat, setShowAIChat]   = useState(false);
@@ -389,9 +390,21 @@ const Analytics = ({ drugName, file, onBack }) => {
                     Status: {data.risk_assessment.risk_label}
                   </p>
                   <div className="relative rounded-xl border border-gray-200 bg-gray-50 px-4 pt-5 pb-4">
-                    <span className="absolute -top-2.5 left-3 bg-white px-2 text-[9px] font-black uppercase tracking-widest text-blue-500 border border-blue-100 rounded-full">
-                      AI Summary
-                    </span>
+                    <div className="absolute -top-2.5 left-3 bg-white px-2 text-[9px] font-black uppercase tracking-widest text-blue-500 border border-blue-100 rounded-full">
+                      <span 
+                        className={`cursor-pointer transition-colors ${viewMode === 'doctor' ? 'text-blue-600' : 'text-gray-400 hover:text-blue-500'}`}
+                        onClick={() => setViewMode('doctor')}
+                      >
+                        doctor
+                      </span>
+                      <span className="mx-1 text-gray-300">|</span>
+                      <span 
+                        className={`cursor-pointer transition-colors ${viewMode === 'patient' ? 'text-blue-600' : 'text-gray-400 hover:text-blue-500'}`}
+                        onClick={() => setViewMode('patient')}
+                      >
+                        patient
+                      </span>
+                    </div>
                     <button
                       onClick={openAIChat}
                       title="Ask AI about this result"
@@ -420,7 +433,10 @@ const Analytics = ({ drugName, file, onBack }) => {
                         @keyframes glowPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
                       `}</style>
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      {data.llm_generated_explanation?.summary || 'Pharmacogenomic analysis complete. Review findings below.'}
+                      {viewMode === 'doctor' 
+                        ? data.llm_generated_explanation?.clinical_summary || data.llm_generated_explanation?.summary || 'Pharmacogenomic analysis complete. Review findings below.'
+                        : data.llm_generated_explanation?.summary || 'Pharmacogenomic analysis complete. Review findings below.'
+                      }
                     </p>
                   </div>
                 </div>
