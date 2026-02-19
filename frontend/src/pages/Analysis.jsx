@@ -378,7 +378,7 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
   const kpis = [
     { label: 'Risk',         val: data.risk_assessment.risk_label,               icon: <FiAlertTriangle className="text-red-500" />,   sub: 'Risk Level',            alert: data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.risk_label === "Toxic", warning: data.risk_assessment.risk_label === "Adjust Dosage" },
     { label: 'Phenotype',    val: data.pharmacogenomic_profile.phenotype,        icon: <FiZap className="text-blue-400" />,            sub: 'Metabolic Profile' },
-    { label: 'Confidence',   val: `${data.risk_assessment.confidence_score * 100}%`, icon: <FiActivity className="text-emerald-500" />, sub: 'Model Precision' },
+    { label: 'Confidence',   val: (() => { const s = data.risk_assessment.confidence_score; return s >= 0.9 ? 'Very High' : s >= 0.75 ? 'High' : s >= 0.55 ? 'Medium' : s >= 0.35 ? 'Low' : 'Very Low'; })(), icon: <FiActivity className="text-emerald-500" />, sub: 'Confidence Level', confidenceScore: data.risk_assessment.confidence_score },
     { label: 'Drug Compatibility Score', val: getCompatibilityScore(data.risk_assessment.risk_label), icon: <FiShield className="text-emerald-500" />, sub: 'Compatibility (out of 100)', score: getCompatibilityScore(data.risk_assessment.risk_label) },
   ];
 
@@ -660,7 +660,7 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className={`p-6 rounded-3xl border shadow-sm ${
+                  className={`p-4 rounded-3xl border shadow-sm ${
                     kpi.alert 
                       ? 'bg-red-50 border-red-200 shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
                       : kpi.warning 
@@ -668,22 +668,47 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                       : 'bg-white border-blue-200'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-3 text-gray-500">
-                    <span className="text-sm">{kpi.icon}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{kpi.label}</span>
+                  <div className="flex items-center gap-2 mb-2 text-gray-500">
+                    <span className="text-lg">{kpi.icon}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">{kpi.label}</span>
                   </div>
-                  <p className={`text-lg font-mono font-bold leading-none mb-1 ${
-                    kpi.alert 
-                      ? 'text-red-600' 
-                      : kpi.warning 
-                      ? 'text-yellow-600' 
-                      : 'text-gray-800'
-                  }`}>{kpi.val}</p>
-                  <p className="text-[8px] opacity-60 font-bold uppercase tracking-tighter text-gray-500">{kpi.sub}</p>
+                  {kpi.label === 'Confidence' ? (
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xl font-mono font-bold leading-none ${
+                        kpi.alert ? 'text-red-600' : kpi.warning ? 'text-yellow-600' : 'text-gray-800'
+                      }`}>{kpi.val}</p>
+                      {/* Circular bar inline */}
+                      {(() => {
+                        const s = kpi.confidenceScore;
+                        const color = s >= 0.9 ? '#10b981' : s >= 0.75 ? '#22c55e' : s >= 0.55 ? '#f59e0b' : s >= 0.35 ? '#f97316' : '#ef4444';
+                        const r = 18; const circ = 2 * Math.PI * r;
+                        return (
+                          <div className="relative w-14 h-14 shrink-0">
+                            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 44 44">
+                              <circle cx="22" cy="22" r={r} stroke="#e5e7eb" strokeWidth="3.5" fill="none" />
+                              <circle cx="22" cy="22" r={r} stroke={color} strokeWidth="3.5" fill="none"
+                                strokeDasharray={circ}
+                                strokeDashoffset={circ * (1 - s)}
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[10px] font-black" style={{ color }}>{Math.round(s * 100)}%</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <p className={`text-xl font-mono font-bold leading-none mb-1 ${
+                      kpi.alert ? 'text-red-600' : kpi.warning ? 'text-yellow-600' : 'text-gray-800'
+                    }`}>{kpi.val}</p>
+                  )}
+                  <p className="text-[9px] opacity-60 font-bold uppercase tracking-tighter text-gray-500">{kpi.sub}</p>
                   
                   {/* Linear Competition Bar for Drug Compatibility Score */}
                   {kpi.label === 'Drug Compatibility Score' && (
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                         <div 
                           className="h-full rounded-full transition-all duration-500 ease-out"
@@ -694,9 +719,9 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
                         />
                       </div>
                       <div className="flex justify-between mt-1">
-                        <span className="text-[7px] text-gray-400">0</span>
-                        <span className="text-[7px] text-gray-400">50</span>
-                        <span className="text-[7px] text-gray-400">100</span>
+                        <span className="text-[8px] text-gray-400">0</span>
+                        <span className="text-[8px] text-gray-400">50</span>
+                        <span className="text-[8px] text-gray-400">100</span>
                       </div>
                     </div>
                   )}
