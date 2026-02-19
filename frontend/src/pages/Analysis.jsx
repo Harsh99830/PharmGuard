@@ -42,6 +42,10 @@ const Analytics = ({ drugName, file, onBack }) => {
       try {
         setLoading(true);
         const result = await apiService.analyzeDrug(file, drugName);
+        if (result.error) {
+          setError(result.error_message || 'Unsupported VCF format or no matching variants found.');
+          return;
+        }
         setData(result);
       } catch (err) {
         setError(err.message);
@@ -123,14 +127,125 @@ const Analytics = ({ drugName, file, onBack }) => {
     </div>
   );
 
-  if (error) return (
-    <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">
-      <div className="text-center">
-        <p className="text-red-500 mb-4">Error: {error}</p>
-        <button onClick={onBack} className="px-4 py-2 bg-white text-black rounded-lg">Go Back</button>
+  if (error) {
+    const isNoVariant = error.includes('No pharmacogenomic variant found');
+    const detectedDrug = error.match(/for (\w+) \(/)?.[1]?.toUpperCase() || drugName?.toUpperCase();
+    const supportedGenes  = ['CYP2C19', 'CYP2D6', 'CYP2C9', 'SLCO1B1', 'TPMT', 'DPYD'];
+    const supportedDrugs  = ['Clopidogrel', 'Codeine', 'Warfarin', 'Simvastatin', 'Azathioprine', 'Fluorouracil'];
+
+    return (
+      <div className="min-h-screen w-full font-sans flex items-center justify-center p-6 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #fdf2f8 100%)' }}>
+
+        {/* Decorative blobs */}
+        <div className="absolute top-0 left-0 w-96 h-96 rounded-full opacity-20 pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #bfdbfe, transparent)', transform: 'translate(-30%, -30%)' }} />
+        <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full opacity-15 pointer-events-none"
+          style={{ background: 'radial-gradient(circle, #fbcfe8, transparent)', transform: 'translate(30%, 30%)' }} />
+
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="w-full max-w-xl relative z-10"
+        >
+          {/* ── Top branding strip ── */}
+          <div className="flex items-center gap-2 mb-4 justify-center">
+            <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
+              <FiShield className="text-white text-sm" />
+            </div>
+            <span className="text-sm font-black text-gray-700 tracking-tight">PharmaGuard</span>
+            <span className="text-[9px] font-bold text-blue-500 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Clinical v4.2</span>
+          </div>
+
+          {/* ── Main card ── */}
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+
+            {/* Header */}
+            <div className="relative px-8 pt-8 pb-6 text-center" style={{ background: 'linear-gradient(160deg, #fff5f5 0%, #fef9f0 100%)' }}>
+              {/* Pulsing icon */}
+              <div className="relative inline-flex items-center justify-center mb-4">
+                <span className="absolute w-16 h-16 rounded-full bg-red-100 animate-ping opacity-40" />
+                <div className="relative w-14 h-14 rounded-2xl bg-red-50 border-2 border-red-200 flex items-center justify-center">
+                  <FiAlertTriangle className="text-red-500 text-2xl" />
+                </div>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400 mb-1">
+                {isNoVariant ? 'Incompatible File' : 'Analysis Failed'}
+              </p>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                {isNoVariant
+                  ? <><span className="text-blue-500">{detectedDrug}</span> · No Variants Found</>
+                  : 'Something went wrong'}
+              </h1>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+
+            {/* Body */}
+            <div className="px-8 py-6 space-y-5">
+              {isNoVariant ? (
+                <>
+                  {/* Description */}
+                  <p className="text-sm text-gray-500 leading-relaxed text-center">
+                    Your VCF file doesn't have the pharmacogenomic annotations needed.
+                    PharmaGuard requires{' '}
+                    <code className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono">GENE</code>
+                    {' '}and{' '}
+                    <code className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono">STAR</code>
+                    {' '}fields in the INFO column.
+                  </p>
+
+                  {/* Two columns: genes + drugs */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-blue-400 mb-3">Supported Genes</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {supportedGenes.map(g => (
+                          <span key={g} className="text-[10px] font-bold text-blue-700 bg-white border border-blue-200 px-2.5 py-1 rounded-full shadow-sm">{g}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-3">Supported Drugs</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {supportedDrugs.map(d => (
+                          <span key={d} className="text-[10px] font-bold text-gray-600 bg-white border border-gray-200 px-2.5 py-1 rounded-full shadow-sm">{d}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tip */}
+                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                    <span className="text-base mt-0.5">💡</span>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Use the <span className="font-bold">sample_patient.vcf</span> bundled with PharmaGuard — it has all required annotations and works out of the box.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 leading-relaxed text-center">{error}</p>
+              )}
+            </div>
+
+            {/* Footer button */}
+            <div className="px-8 pb-8">
+              <button
+                onClick={onBack}
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white transition-all hover:opacity-90 hover:scale-[1.01] shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}
+              >
+                <FiArrowLeft size={14} />
+                Try a different file
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </div>
-  );
+    );
+  }
 
   if (!data) return (
     <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">

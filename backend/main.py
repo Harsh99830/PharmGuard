@@ -90,4 +90,12 @@ async def analyze(vcf: UploadFile = File(...), drug: str = Form(...)):
 
             return output
 
-    return {"risk": "Unknown"}
+    # No matching pharmacogenomic variant found for this drug in the uploaded VCF.
+    # This usually means the VCF doesn't contain GENE/STAR fields (non-PharmaGuard format)
+    # or the drug's target gene is simply not present in the file.
+    return {
+        "error": "no_variant_found",
+        "error_message": f"No pharmacogenomic variant found for {drug} (gene: {drug_gene}) in this VCF file. "
+                         f"Please ensure your VCF contains GENE and STAR allele annotations for supported genes: "
+                         f"{', '.join(['CYP2C19', 'CYP2D6', 'CYP2C9', 'SLCO1B1', 'TPMT', 'DPYD'])}."
+    }
