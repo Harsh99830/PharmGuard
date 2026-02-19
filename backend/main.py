@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 import uuid
@@ -13,11 +14,20 @@ from llm_explainer import generate_explanation
 
 app = FastAPI()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000", "http://127.0.0.1:52563"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/analyze/")
-async def analyze(vcf: UploadFile, drug: str):
+async def analyze(vcf: UploadFile = File(...), drug: str = Form(...)):
 
     # ⭐ create unique filename
     filename = f"{uuid.uuid4()}_{vcf.filename}"
