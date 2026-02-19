@@ -76,16 +76,16 @@ const Analytics = ({ drugName, file, onBack }) => {
 
     try {
       const context = `
-Patient pharmacogenomic data:
-- Drug: ${data.drug}
-- Gene: ${data.pharmacogenomic_profile.primary_gene}
-- Phenotype: ${data.pharmacogenomic_profile.phenotype}
-- Risk: ${data.risk_assessment.risk_label}
-- Recommendation: ${data.clinical_recommendation.recommendation}
-- Summary: ${data.llm_generated_explanation.summary}
+  Patient pharmacogenomic data:
+  - Drug: ${data.drug}
+  - Gene: ${data.pharmacogenomic_profile.primary_gene}
+  - Phenotype: ${data.pharmacogenomic_profile.phenotype}
+  - Risk: ${data.risk_assessment.risk_label}
+  - Recommendation: ${data.clinical_recommendation.recommendation}
+  - Summary: ${data.llm_generated_explanation.summary}
 
-You are a friendly, plain-English health assistant. Answer in 2-3 short sentences max. No jargon. Be warm and clear.
-      `;
+  You are a friendly, plain-English health assistant. Answer in 2-3 short sentences max. No jargon. Be warm and clear.
+        `;
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -99,7 +99,7 @@ You are a friendly, plain-English health assistant. Answer in 2-3 short sentence
               role: m.role,
               content: m.text
             })),
-            { role: 'user', content: userMsg }
+            { role: "user", content: userMsg }
           ]
         })
       });
@@ -114,7 +114,6 @@ You are a friendly, plain-English health assistant. Answer in 2-3 short sentence
     }
   };
 
-  /* ── Loading / error / empty states ── */
   if (loading) return (
     <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center">
       <div className="text-center">
@@ -142,10 +141,8 @@ You are a friendly, plain-English health assistant. Answer in 2-3 short sentence
     </div>
   );
 
-  const isCritical = data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.severity === "high";
-
   const kpis = [
-    { label: 'Risk',         val: data.risk_assessment.risk_label,              icon: <FiAlertTriangle className="text-red-500" />,   sub: 'Risk Level',            alert: data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.risk_label === "Toxic" },
+    { label: 'Risk',         val: data.risk_assessment.risk_label,               icon: <FiAlertTriangle className="text-red-500" />,   sub: 'Risk Level',            alert: data.risk_assessment.risk_label === "Ineffective" || data.risk_assessment.risk_label === "Toxic" },
     { label: 'Phenotype',    val: data.pharmacogenomic_profile.phenotype,        icon: <FiZap className="text-blue-400" />,            sub: 'Metabolic Profile' },
     { label: 'Confidence',   val: `${data.risk_assessment.confidence_score * 100}%`, icon: <FiActivity className="text-emerald-500" />, sub: 'Model Precision' },
     { label: 'Actionability',val: data.clinical_recommendation.recommendation,  icon: <FiShield className="text-emerald-500" />,      sub: 'Clinical Recommendation' },
@@ -153,16 +150,16 @@ You are a friendly, plain-English health assistant. Answer in 2-3 short sentence
 
   const downloadPDF = () => {
     const pdfContent = `
-PHARMGUARD CLINICAL REPORT
-============================
-Patient ID: ${data.patient_id}
-Drug: ${data.drug}
-Analysis Date: ${data.timestamp}
-Risk Level: ${data.risk_assessment.risk_label}
-Recommendation: ${data.clinical_recommendation.recommendation}
-Evidence: ${data.clinical_recommendation.evidence}
-Summary: ${data.llm_generated_explanation.summary}
-    `;
+  PHARMGUARD CLINICAL REPORT
+  ============================
+  Patient ID: ${data.patient_id}
+  Drug: ${data.drug}
+  Analysis Date: ${data.timestamp}
+  Risk Level: ${data.risk_assessment.risk_label}
+  Recommendation: ${data.clinical_recommendation.recommendation}
+  Evidence: ${data.clinical_recommendation.evidence}
+  Summary: ${data.llm_generated_explanation.summary}
+      `;
     const blob = new Blob([pdfContent], { type: 'text/plain' });
     const url  = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -258,7 +255,6 @@ Summary: ${data.llm_generated_explanation.summary}
         {/* ===== MAIN CONTENT ===== */}
         <main className="flex-1 p-4 md:p-8 relative z-10 overflow-y-auto bg-white">
           <div className="max-w-6xl mx-auto">
-
             <nav className="mb-8" />
 
             {/* ===== CLINICAL BANNER ===== */}
@@ -268,35 +264,25 @@ Summary: ${data.llm_generated_explanation.summary}
               transition={{ duration: 0.4 }}
               className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 mb-8"
             >
-              {/* ── LEFT BOX ── */}
               <div className="flex items-start gap-5 bg-white border border-gray-200 rounded-2xl px-7 py-5 shadow-sm">
-                {/* Alert circle */}
                 <div className="shrink-0 mt-0.5 w-14 h-14 rounded-full border-4 border-red-200 bg-red-50 flex items-center justify-center">
                   <FiAlertTriangle className="text-red-500 text-xl" />
                 </div>
-
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">{data.drug}</h2>
                   <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest mb-6">
                     Status: {data.risk_assessment.risk_label}
                   </p>
-
-                  {/* Bordered explanation area */}
                   <div className="relative rounded-xl border border-gray-200 bg-gray-50 px-4 pt-5 pb-4">
-                    {/* "AI Summary" label clipped into the top-left border */}
                     <span className="absolute -top-2.5 left-3 bg-white px-2 text-[9px] font-black uppercase tracking-widest text-blue-500 border border-blue-100 rounded-full">
                       AI Summary
                     </span>
-
-                    {/* Gemini icon button — top-right corner with spinning gradient border */}
                     <button
                       onClick={openAIChat}
                       title="Ask AI about this result"
                       className="group absolute -top-4 right-2 w-8 h-8 rounded-full flex items-center justify-center bg-white hover:scale-110 transition-transform duration-300"
                       style={{ padding: '2px' }}
                     >
-                      {/* Spinning conic gradient ring */}
                       <span
                         className="pointer-events-none absolute inset-0 rounded-full"
                         style={{
@@ -308,7 +294,6 @@ Summary: ${data.llm_generated_explanation.summary}
                           maskComposite: 'exclude',
                         }}
                       />
-                      {/* Glow pulse */}
                       <span
                         className="pointer-events-none absolute inset-0 rounded-full"
                         style={{ boxShadow: '0 0 8px rgba(14,165,233,0.5)', animation: 'glowPulse 2s ease-in-out infinite' }}
@@ -316,21 +301,16 @@ Summary: ${data.llm_generated_explanation.summary}
                       <GeminiIcon size={18} />
                     </button>
                     <style>{`
-                      @keyframes spinBorder { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                      @keyframes glowPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
-                    `}</style>
-
+                        @keyframes spinBorder { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                        @keyframes glowPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+                      `}</style>
                     <p className="text-sm text-gray-600 leading-relaxed">
                       {data.llm_generated_explanation?.summary || 'Pharmacogenomic analysis complete. Review findings below.'}
                     </p>
                   </div>
-
-                  {/* shimmer keyframe */}
-                  <style>{`@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }`}</style>
                 </div>
               </div>
 
-              {/* ── RIGHT BOX — Recommendation ── */}
               <div className="flex flex-col justify-between bg-blue-500 rounded-2xl px-7 py-6 shadow-md">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-200 mb-2">Recommendation Actionability</p>
@@ -367,68 +347,6 @@ Summary: ${data.llm_generated_explanation.summary}
                   <p className={`text-lg font-mono font-bold leading-none mb-1 ${kpi.alert ? 'text-red-600' : 'text-gray-800'}`}>{kpi.val}</p>
                   <p className="text-[8px] opacity-60 font-bold uppercase tracking-tighter text-gray-500">{kpi.sub}</p>
                 </motion.div>
-              ))}
-            </div>
-
-            {/* ===== HERO CARD ===== */}
-            <div className="grid grid-cols-1 gap-6 mb-12">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-                className={`p-10 md:p-14 rounded-[3rem] border shadow-lg ${isCritical ? 'border-red-200 bg-red-50 shadow-[0_0_60px_rgba(220,38,38,0.1)]' : 'border-blue-200 bg-white'} transition-all`}
-              >
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-                  <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      {isCritical && (
-                        <span className="flex items-center gap-2 px-3 py-1 bg-red-600 text-[10px] font-black uppercase tracking-tighter rounded-lg text-white animate-pulse">
-                          <FiAlertTriangle /> Critical Interference Detected
-                        </span>
-                      )}
-                      <span className="text-[10px] tracking-[0.4em] text-gray-500 uppercase font-black">Pharmacology Report</span>
-                    </div>
-                    <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none mb-2 text-gray-800">{data.drug}</h1>
-                    <p className="text-gray-500 font-medium tracking-[0.2em] uppercase text-xs">Primary Gene: {data.pharmacogenomic_profile.primary_gene} // {data.pharmacogenomic_profile.phenotype}</p>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* ===== VARIANT EXPLORER ===== */}
-            <div className="bg-white border border-blue-200 rounded-[2.5rem] overflow-hidden shadow-lg">
-              <div className="px-10 py-6 border-b border-blue-200 flex justify-between items-center bg-blue-50">
-                <div className="flex items-center gap-3">
-                  <FiSearch className="text-blue-500" />
-                  <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em]">Extended Genetic Sequence Detail</h4>
-                </div>
-              </div>
-              {data.pharmacogenomic_profile.detected_variants.map((v, i) => (
-                <div key={v.rsid}>
-                  <button
-                    onClick={() => setExpandedSection(expandedSection === i ? null : i)}
-                    className="w-full flex justify-between p-10 items-center text-left hover:bg-white/[0.04] transition-all"
-                  >
-                    <div className="flex gap-16 items-center">
-                      <div>
-                        <p className="text-[9px] opacity-40 font-black uppercase tracking-tighter mb-1">Variant Identity</p>
-                        <p className="text-lg font-mono font-bold">{v.rsid}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] opacity-40 font-black uppercase tracking-tighter mb-1">Functional Impact</p>
-                        <p className={`text-lg font-bold uppercase tracking-widest ${v.impact === 'Critical' ? 'text-red-600' : 'text-gray-800'}`}>{v.impact}</p>
-                      </div>
-                    </div>
-                    <FiChevronDown className={`text-2xl transition-transform duration-500 ${expandedSection === i ? 'rotate-180' : 'opacity-20'}`} />
-                  </button>
-                  <AnimatePresence>
-                    {expandedSection === i && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                        <div className="p-10 text-sm text-gray-500 border-t border-gray-100 leading-relaxed italic max-w-4xl">
-                          {v.detail}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
               ))}
             </div>
           </div>
@@ -477,11 +395,7 @@ Summary: ${data.llm_generated_explanation.summary}
               className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
               style={{ maxHeight: '80vh' }}
             >
-              {/* Chat header */}
-              <div
-                className="px-6 py-4 flex items-center justify-between"
-                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #3b82f6 60%, #06b6d4 100%)' }}
-              >
+              <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #3b82f6 60%, #06b6d4 100%)' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
                     <GeminiIcon size={18} />
@@ -496,7 +410,6 @@ Summary: ${data.llm_generated_explanation.summary}
                 </button>
               </div>
 
-              {/* Drug context chip */}
               <div className="px-6 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Analysing</span>
                 <span className="text-[10px] font-black uppercase tracking-wide text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">{data.drug}</span>
@@ -504,7 +417,6 @@ Summary: ${data.llm_generated_explanation.summary}
                 <span className="text-[9px] font-medium text-gray-400">{data.risk_assessment.risk_label}</span>
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
                 {chatMessages.map((msg, i) => (
                   <motion.div
@@ -514,26 +426,15 @@ Summary: ${data.llm_generated_explanation.summary}
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div
-                        className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 mt-0.5 shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}
-                      >
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 mt-0.5 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
                         <GeminiIcon size={12} />
                       </div>
                     )}
-                    <div
-                      className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                        msg.role === 'user'
-                          ? 'bg-blue-500 text-white rounded-tr-sm'
-                          : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                      }`}
-                    >
+                    <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
                       {msg.text}
                     </div>
                   </motion.div>
                 ))}
-
-                {/* Typing indicator */}
                 {chatLoading && (
                   <div className="flex justify-start">
                     <div className="w-7 h-7 rounded-xl flex items-center justify-center mr-2 shrink-0" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)' }}>
@@ -541,8 +442,7 @@ Summary: ${data.llm_generated_explanation.summary}
                     </div>
                     <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
                       {[0, 0.2, 0.4].map((delay, i) => (
-                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-400 block"
-                          animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay }} />
+                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-400 block" animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay }} />
                       ))}
                     </div>
                   </div>
@@ -550,26 +450,6 @@ Summary: ${data.llm_generated_explanation.summary}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Suggested questions */}
-              {chatMessages.length <= 1 && (
-                <div className="px-5 pb-3 flex gap-2 flex-wrap">
-                  {[
-                    'What does this mean for me?',
-                    'Is this dangerous?',
-                    'What should I tell my doctor?',
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => { setChatInput(q); }}
-                      className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Input */}
               <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
                 <input
                   type="text"
