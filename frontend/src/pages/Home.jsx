@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  FiUpload, FiFileText, FiCheckCircle, FiSearch, FiActivity, FiLayers, FiChevronDown
+  FiUpload, FiFileText, FiCheckCircle, FiSearch, FiActivity, FiLayers, FiChevronDown, FiX, FiInfo
 } from 'react-icons/fi';
 
 const RiskAssessmentHome = ({ onAnalyze }) => {
@@ -10,6 +10,9 @@ const RiskAssessmentHome = ({ onAnalyze }) => {
   const [selectedDrugs, setSelectedDrugs] = useState([]);
   const [drugName, setDrugName] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [parsedData, setParsedData] = useState(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const drugOptions = [
     "CODEINE", "WARFARIN", "CLOPIDOGREL", 
@@ -20,18 +23,82 @@ const RiskAssessmentHome = ({ onAnalyze }) => {
     d.toLowerCase().includes(drugName.toLowerCase()) && !selectedDrugs.includes(d)
   );
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
+
+  const parseVCFFile = async (file) => {
+    setIsParsing(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n');
+      const variants = [];
+      let headerLine = null;
       
-      if (selectedFile.size > maxSize) {
-        alert('VCF file size must be less than 5MB');
-        e.target.value = ''; // Clear the input
-        return;
+      for (const line of lines) {
+        if (line.startsWith('#')) {
+          if (line.startsWith('##')) continue; 
+          headerLine = line;
+          continue; 
+        }
+        if (!headerLine) continue; 
+        const columns = line.split('\t');
+        if (columns.length < 10) continue; 
+        
+        const chr = columns[0];
+        const pos = columns[1];
+        const rsid = columns[2];
+        const ref = columns[3];
+        const alt = columns[4];
+        const info = columns[7];
+        
+        const infoFields = info.split(';');
+        let gene = null;
+        for (const field of infoFields) {
+          if (field.startsWith('GENE=')) gene = field.split('=')[1];
+        }
+
+        const targetGenes = ["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"];
+        if (gene && targetGenes.includes(gene)) {
+          variants.push({
+            chr, pos, rsid, ref, alt, gene, 
+            qual: columns[5], filter: columns[6], info, format: columns[8], sample: columns[9]
+          });
+        }
       }
       
+      setParsedData({
+        fileName: file.name,
+        fileSize: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+        variantCount: variants.length,
+        variants: variants
+      });
+      setShowSuccess(true);
+    } catch (error) {
+      alert('Failed to parse VCF file.');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
       setFile(selectedFile);
+      await parseVCFFile(selectedFile);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault(); 
+    setIsDragging(false); 
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+      await parseVCFFile(droppedFile);
     }
   };
 
@@ -50,210 +117,191 @@ const RiskAssessmentHome = ({ onAnalyze }) => {
   const isActive = file && selectedDrugs.length > 0;
 
   return (
-    <div className="h-screen w-screen bg-[#0a0a0a] flex flex-col items-center justify-center font-sans text-white selection:bg-white selection:text-black overflow-hidden relative">
-      
-      {/* Deep Background Glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,#1a1a1a_0%,transparent_70%)] opacity-60" />
-
-      <main className="z-10 w-full max-w-5xl px-6">
-        
-        {/* --- Header Section --- */}
-        <header className="flex items-center justify-between mb-20 px-2">
+    <div className="min-h-screen bg-[#f5f7f8] text-slate-900 pb-20 relative font-sans">
+      <AnimatePresence>
+        {showSuccess && (
           <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-5"
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 20, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-1/2 transform -translate-x-1/2 z-[100] bg-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-bold"
           >
-            <div className="w-14 h-14 bg-white flex items-center justify-center rounded-2xl shadow-[0_0_30px_rgba(255,255,255,0.1)]">
-               <FiLayers className="text-black text-3xl" />
-            </div>
-            <h1 className="text-5xl tracking-tighter flex gap-2">
-              <span className="font-extralight text-white/40">pharm</span>
-              <span className="font-black italic">GUARD</span>
-            </h1>
-          </motion.div>
-
-          <div className="h-[1px] flex-1 mx-12 bg-gradient-to-r from-white/20 via-white/5 to-transparent" />
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-end">
-            <span className={`text-[10px] font-bold tracking-[0.5em] uppercase mb-1 transition-colors duration-500 ${isActive ? 'text-white' : 'text-white/20'}`}>
-               {isActive ? 'READY' : 'STANDBY'}
-            </span>
-            <div className={`h-1 w-12 rounded-full transition-all duration-500 ${isActive ? 'bg-white w-20' : 'bg-white/10 w-8'}`} />
-          </motion.div>
-        </header>
-
-        {/* --- Side-by-Side Parameter Cards --- */}
-        <div className="grid grid-cols-2 gap-8 mb-10">
-          
-          {/* Drug Input Card with Dropdown */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/[0.04] border border-white/15 rounded-[2.5rem] p-10 flex flex-col justify-between h-72 transition-all hover:bg-white/[0.06] hover:border-white/25 group relative"
-          >
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-2 h-2 rounded-full bg-white/20 group-hover:bg-white transition-colors" />
-                <p className="text-[10px] tracking-[0.4em] font-black text-white/30 uppercase">Selection</p>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 tracking-tight">Pharmaceutical Target</h3>
-              <p className="text-white/40 text-sm leading-relaxed max-w-[280px]">Define the compound for risk analysis.</p>
-            </div>
-            
-            <div className="relative">
-              <FiSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-white transition-colors z-20" />
-              <input 
-                type="text"
-                placeholder="Search or select drug..."
-                value={drugName}
-                onFocus={() => setShowDropdown(true)}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                onChange={(e) => setDrugName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 focus:border-white/40 outline-none rounded-2xl py-5 pl-14 pr-12 text-base font-medium tracking-wide transition-all uppercase placeholder:normal-case z-10"
-              />
-              <FiChevronDown className={`absolute right-5 top-1/2 -translate-y-1/2 text-white/20 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} />
-
-              {/* Dropdown Menu */}
-              <AnimatePresence>
-                {showDropdown && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute left-0 right-0 top-[110%] bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden z-[50] shadow-2xl backdrop-blur-xl"
-                  >
-                    {filteredDrugs.length > 0 ? (
-                      filteredDrugs.map((drug) => (
-                        <div 
-                          key={drug}
-                          onClick={() => addDrug(drug)}
-                          className="px-6 py-4 hover:bg-white hover:text-black transition-colors cursor-pointer text-xs font-bold tracking-widest uppercase"
-                        >
-                          {drug}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-6 py-4 text-white/20 text-[10px] uppercase tracking-widest text-center">No results</div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
-          {/* VCF Upload Card */}
-          <motion.label 
-            htmlFor="file-upload"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => { 
-  e.preventDefault(); 
-  setIsDragging(false); 
-  const droppedFile = e.dataTransfer.files[0];
-  const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-  
-  if (droppedFile && droppedFile.size > maxSize) {
-    alert('VCF file size must be less than 5MB');
-    return;
-  }
-  
-  if (droppedFile) setFile(droppedFile); 
-}}
-            className={`cursor-pointer border rounded-[2.5rem] p-10 flex flex-col justify-between h-72 transition-all duration-500 group
-              ${isDragging ? 'bg-white/[0.15] border-white/50' : 'bg-white/[0.04] border-white/15 hover:bg-white/[0.06] hover:border-white/25'}`}
-          >
-            <input id="file-upload" type="file" className="hidden" accept=".vcf" onChange={handleFileChange} />
-            
-            <div>
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full transition-colors ${file ? 'bg-white' : 'bg-white/20 group-hover:bg-white'}`} />
-                    <p className="text-[10px] tracking-[0.4em] font-black text-white/30 uppercase">Sequence</p>
-                </div>
-                {file && <FiCheckCircle className="text-white text-xl" />}
-              </div>
-              <h3 className="text-2xl font-bold mb-3 tracking-tight">Variant Data (VCF)</h3>
-              <p className="text-white/40 text-sm leading-relaxed">
-                {file ? `Buffered: ${file.name.substring(0, 24)}...` : "Import sequence data to extract genotypes."}
-              </p>
-              <div className="flex gap-4 mt-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> VCF ONLY
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" /> MAX 5MB
-                </div>
-              </div>
-            </div>
-
-            <div className={`flex items-center gap-4 rounded-2xl p-5 border transition-all duration-300 ${file ? 'bg-white text-black border-white' : 'bg-white/5 border-white/5 group-hover:border-white/10'}`}>
-               <FiUpload className={`text-xl ${file ? 'text-black' : 'text-white/20'}`} />
-               <span className="text-xs font-black tracking-[0.2em] uppercase">
-                 {file ? "Sequence Locked" : "Select VCF Sequence"}
-               </span>
-            </div>
-          </motion.label>
-        </div>
-
-        {/* --- Selected Drugs Section --- */}
-        {selectedDrugs.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-10"
-          >
-            <div className="flex flex-wrap gap-3">
-              <AnimatePresence>
-                {selectedDrugs.map((drug) => (
-                  <motion.span 
-                    key={drug}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="group flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-sm font-bold border border-white/20 shadow-sm hover:border-white/40 transition-all cursor-pointer"
-                    onClick={() => removeDrug(drug)}
-                  >
-                    {drug}
-                    <span className="text-black/40 group-hover:text-black transition-colors">×</span>
-                  </motion.span>
-                ))}
-              </AnimatePresence>
-            </div>
+            <FiCheckCircle className="text-xl" />
+            VCF Uploaded Successfully!
           </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* --- Primary Command Button --- */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative pt-6"
-        >
-          <motion.button 
-            disabled={!isActive}
-            whileHover={isActive ? { scale: 1.01, y: -2 } : {}}
-            whileTap={isActive ? { scale: 0.99 } : {}}
-            onClick={() => onAnalyze(selectedDrugs, file)}
-            className={`w-full py-12 rounded-[2rem] font-black text-2xl uppercase tracking-[0.8em] flex items-center justify-center gap-8 transition-all duration-700
-              ${isActive
-                ? 'bg-white text-black shadow-[0_30px_60px_-15px_rgba(255,255,255,0.2)] cursor-pointer' 
-                : 'bg-white/5 text-white border border-white/10 cursor-not-allowed opacity-50'}`}
-          >
-            <motion.div animate={isActive ? { scale: [1, 1.2, 1] } : {}} transition={{ repeat: Infinity, duration: 2 }}>
-                <FiActivity className="text-3xl" />
-            </motion.div>
-            See Ur Report
-          </motion.button>
-        </motion.div>
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 lg:px-12 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3 w-1/4">
+          <div className="bg-[#007fff] p-1.5 rounded-lg flex items-center justify-center text-white">
+            <FiLayers className="text-2xl" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">PharmaGuard</h1>
+        </div>
+        
+        <nav className="flex-grow flex justify-center">
+          <a className="text-sm font-semibold text-slate-700 hover:text-[#007fff] transition-colors" href="#">Dashboard</a>
+        </nav>
+        
+        <div className="w-1/4"></div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-10 lg:py-16">
+        <div className="mb-10 text-left">
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Patient Genomic Analysis</h2>
+          <p className="text-slate-500 mt-2 text-lg">Upload clinical sequencing data to assess adverse drug reaction risks.</p>
+        </div>
+
+        {/* Updated Grid: 6/12 for Inputs and 6/12 for Preview to decrease preview width */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-6 space-y-6">
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#007fff]/10 text-[#007fff] text-sm font-bold">1</div>
+                <h3 className="text-lg font-bold text-slate-900">Genomic Data Upload</h3>
+              </div>
+              
+              <div className="relative group">
+                <div 
+                  className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl py-12 px-6 transition-all bg-slate-50
+                    ${isDragging ? 'border-[#007fff]/50' : 'border-slate-300 group-hover:border-[#007fff]/50'}`}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                >
+                  <div className="w-14 h-14 rounded-full bg-[#007fff]/10 flex items-center justify-center mb-4 text-[#007fff]">
+                    <FiUpload className="text-3xl" />
+                  </div>
+                  <p className="text-slate-900 font-semibold text-center truncate max-w-full px-2">
+                    {file ? file.name : 'Drag & drop VCF file here'}
+                  </p>
+                  <p className="text-slate-500 text-sm mt-1 mb-6 text-center">Max 5MB. Supports .vcf</p>
+                  <label className="bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 cursor-pointer">
+                    <FiSearch className="text-sm" />
+                    {file ? 'Change File' : 'Select File'}
+                    <input type="file" className="hidden" accept=".vcf" onChange={handleFileChange} />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#007fff]/10 text-[#007fff] text-sm font-bold">2</div>
+                <h3 className="text-lg font-bold text-slate-900">Target Medications</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="w-full min-h-[56px] border border-slate-200 rounded-lg p-2 flex flex-wrap gap-2 items-center bg-slate-50 focus-within:border-[#007fff]/30 transition-colors">
+                  {selectedDrugs.map((drug) => (
+                    <span key={drug} className="flex items-center gap-1.5 bg-[#007fff]/10 text-[#007fff] px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border border-[#007fff]/20">
+                      {drug}
+                      <button onClick={() => removeDrug(drug)} className="hover:text-red-500 transition-colors"><FiX /></button>
+                    </span>
+                  ))}
+                  <input 
+                    type="text"
+                    value={drugName}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                    onChange={(e) => setDrugName(e.target.value)}
+                    className="flex-grow bg-transparent border-none focus:ring-0 text-sm py-1.5 outline-none shadow-none"
+                    placeholder="Search drug..."
+                  />
+                </div>
+                
+                {showDropdown && filteredDrugs.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                    {filteredDrugs.map((drug) => (
+                      <button 
+                        key={drug} 
+                        onMouseDown={(e) => e.preventDefault()} 
+                        onClick={() => addDrug(drug)} 
+                        className="text-[10px] font-bold text-slate-500 hover:text-white hover:bg-[#007fff] uppercase border border-slate-200 px-2 py-1 rounded-md transition-all"
+                      >
+                        {drug}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <button 
+              disabled={!isActive}
+              onClick={() => onAnalyze(selectedDrugs, file)}
+              className={`w-full py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 group
+                ${isActive ? 'bg-[#007fff] hover:bg-[#007fff]/90 text-white shadow-[#007fff]/20' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
+            >
+              <FiActivity className={isActive ? 'animate-pulse' : ''} />
+              Analyze Risk
+            </button>
+          </div>
+
+          {/* Slimmer Preview Column (lg:col-span-6) */}
+          <div className="lg:col-span-6 flex flex-col gap-6">
+            <section className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col transition-all duration-300">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FiFileText className="text-slate-400" />
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Parsing Preview</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isParsing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase">{isParsing ? 'Parsing' : 'Ready'}</span>
+                </div>
+              </div>
+
+              {parsedData ? (
+                <div className="p-4 flex flex-col">
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white max-h-[500px] overflow-y-auto shadow-inner">
+                    <table className="w-full text-left text-xs min-w-[700px]">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3 py-2.5 font-bold uppercase">CHROM</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">POS</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">ID</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">REF</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">ALT</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">GENE</th>
+                          <th className="px-3 py-2.5 font-bold uppercase">SAMPLE</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono text-slate-600">
+                        {parsedData.variants.map((variant, index) => (
+                          <tr key={index} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-3 py-2">{variant.chr}</td>
+                            <td className="px-3 py-2">{variant.pos}</td>
+                            <td className="px-3 py-2">{variant.rsid}</td>
+                            <td className="px-3 py-2">{variant.ref}</td>
+                            <td className="px-3 py-2 text-[#007fff] font-bold">{variant.alt}</td>
+                            <td className="px-3 py-2 text-emerald-600 font-bold">{variant.gene}</td>
+                            <td className="px-3 py-2 truncate max-w-[120px]">{variant.sample}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                    <FiLayers />
+                    <span>{parsedData.variantCount} pharmacogenomic variants found</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center text-center py-24">
+                  <div>
+                    <FiFileText className="text-4xl text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-500 text-sm font-medium">No file uploaded</p>
+                    <p className="text-slate-400 text-xs mt-1">Preview will appear here</p>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
       </main>
-
-      {/* Frame Decors */}
-      <div className="absolute top-12 left-12 w-32 h-px bg-gradient-to-r from-white/20 to-transparent" />
-      <div className="absolute top-12 left-12 h-32 w-px bg-gradient-to-b from-white/20 to-transparent" />
-      <div className="absolute bottom-12 right-12 w-32 h-px bg-gradient-to-l from-white/20 to-transparent" />
-      <div className="absolute bottom-12 right-12 h-32 w-px bg-gradient-to-t from-white/20 to-transparent" />
     </div>
   );
 };
