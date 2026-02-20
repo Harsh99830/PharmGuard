@@ -5,8 +5,8 @@ uvicorn[standard]==0.24.0
 # File Handling & Forms
 python-multipart==0.0.6
 
-# VCF Processing (Genomic Data)
-cyvcf2==0.30.18
+# VCF Processing (Genomic Data) - Fixed version for Python 3.14 compatibility
+cyvcf2==0.29.0
 
 # AI/LLM Integration
 openai==1.3.7
@@ -29,3 +29,6 @@ structlog==23.2.0
 # Development (optional, remove in pure production)
 pytest==7.4.3
 pytest-asyncio==0.21.1
+
+# Fix for pkg_resources compatibility (required by cyvcf2)
+setuptools==68.2.2
