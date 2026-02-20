@@ -1,6 +1,6 @@
 # PharmaGuard: AI-Powered Pharmacogenomic Risk Assessment
 
-**Live Demo:** [https://pharmguard-demo.vercel.app](https://pharmguard-demo.vercel.app)  
+**Live Demo:** [https://pharma-guard-xi.vercel.app/)  
 **LinkedIn Demo Video:** [https://www.linkedin.com/posts/kshitij-kj-jain-422025342_rift2026-pharmaguard-pharmacogenomics-ugcPost-7430411725461696513-1OtM?utm_source=share&utm_medium=member_desktop&rcm=ACoAAFXJ5hoBUz7esGLvvjsw-U0_Mhuo9yf44Oo)  
 **GitHub Repository:** [https://github.com/Harsh99830/PharmGuard)
 
