@@ -188,7 +188,7 @@ const Analytics = ({ drugName, file, onBack }) => {
     if (chatMessages.length === 0) {
       setChatMessages([{
         role: 'assistant',
-        text: `Hi! I'm your PharmaGuard AI. I can answer any questions about your ${data?.drug?.toUpperCase()} result, what it means for you, or what to ask your doctor. What would you like to know?`
+        text: `Hi! I'm your PharmaGuard AI. I can answer any questions about your ${String(data?.drug || '').toUpperCase()} result, what it means for you, or what to ask your doctor. What would you like to know?`
       }]);
     }
     setShowAIChat(true);
@@ -256,7 +256,7 @@ You are a friendly health assistant. Answer in 1-2 short sentences maximum. Be d
 
   if (error) {
     const isNoVariant = error.includes('No pharmacogenomic variant found');
-    const detectedDrug = error.match(/for (\w+) \(/)?.[1]?.toUpperCase() || drugName?.toUpperCase();
+    const detectedDrug = String(error.match(/for (\w+) \(/)?.[1] || drugName || '').toUpperCase();
     const supportedGenes  = ['CYP2C19', 'CYP2D6', 'CYP2C9', 'SLCO1B1', 'TPMT', 'DPYD'];
     const supportedDrugs  = ['Clopidogrel', 'Codeine', 'Warfarin', 'Simvastatin', 'Azathioprine', 'Fluorouracil'];
 

@@ -15,7 +15,8 @@ function AppContent() {
 
   // Function called when user clicks "See Ur Report"
   const handleStartAnalysis = (drug, file) => {
-    setAnalysisData({ drugName: drug, file: file });
+    const normalizedDrug = Array.isArray(drug) ? drug[0] : drug;
+    setAnalysisData({ drugName: normalizedDrug || "", file: file });
     navigate('/analysis');
   };
 
